@@ -87,7 +87,6 @@ class PSB(nn.Module):
         self.decoder_pos_embedding = SoftPositionEmbed(self.slot_size, self.dec_resolution)
         self.loss_function = nn.MSELoss()
 
-
     def encode(self, img, prev_slots=None, lang=None):
         unflatten = False 
         if img.dim() == 5:
@@ -157,10 +156,20 @@ class PSB(nn.Module):
 class PSBModule(L.LightningModule):
     def __init__(
             self, 
-            model
+            cfg
         ):
         super().__init__()
-        self.model = model                
+        self.model = PSB(
+            input_shape=cfg.input_shape,
+            output_size=cfg.output_size,
+            num_slots=cfg.num_slots,
+            slot_size=cfg.slot_size,
+            slot_hidden_size=cfg.slot_hidden_size,
+            num_layers=cfg.num_layers,
+            time_heads=cfg.time_heads,
+            obj_heads=cfg.obj_heads,
+            resolution=cfg.resolution,
+        )                
         self.validation_outputs = []
 
     
