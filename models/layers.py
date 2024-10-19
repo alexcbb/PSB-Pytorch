@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import einops
-from utils import build_grid
+from .utils import build_grid
 
 
 class SoftPositionEmbed(nn.Module):
@@ -92,7 +92,7 @@ class InverseCrossAttentionMH(nn.Module):
         attn_mask: T x S
         return: B x T x F
         """
-        B, T, _ = q.shape
+        B, T, _, = q.shape
         _, S, _ = k.shape
         seg_mask = None 
 
@@ -159,22 +159,18 @@ class PSBBlock(nn.Module):
         self.get_mask = get_mask
         
         ## Time-Axis Self-Attention
-        self.time_attn = nn.Sequential(
-                nn.LayerNorm(embed_dim),
-                nn.MultiheadAttention(
+        self.layer_time = nn.LayerNorm(embed_dim)
+        self.time_attn = nn.MultiheadAttention(
                 embed_dim=embed_dim,
                 num_heads=time_nh,
             )
-        )
 
         ## Object-Axis Self-Attention
-        self.obj_attn = nn.Sequential(
-                nn.LayerNorm(embed_dim),
-                nn.MultiheadAttention(
+        self.layer_obj = nn.LayerNorm(embed_dim)
+        self.obj_attn = nn.MultiheadAttention(
                 embed_dim=embed_dim,
                 num_heads=obj_nh,
             )
-        )
 
         ## Final Projection
         self.proj = nn.Sequential(
@@ -184,30 +180,40 @@ class PSBBlock(nn.Module):
             nn.Linear(ffn_dim, embed_dim),
         )
 
-    def forward(self, x, prev_slots=None):
-        B, T, N, D = x.shape
+    def forward(self, input):
+        x, prev_slots, mask = input["features"], input["prev_slots"], input["mask"]
+        B, T, L, D = x.shape
+        N = self.num_slots
         # B x T x N x D
         if prev_slots is None:
             prev_slots = self.init_slots.repeat(B, T, 1, 1)
         input = x
 
         # Inverse Cross-Attention
-        slots = self.ln_q(slots)
+        slots = self.ln_q(prev_slots)
         x = self.ln_kv(x)
+        slots = einops.rearrange(slots, 'b t n d -> (b t) n d', b=B, n=N, t=T)
+        x = einops.rearrange(x, 'b t n d -> (b t) n d', b=B, t=T)
         slots, attn_mask = self.inverse_cross_attn(slots, x, x, return_seg=self.get_mask) # B x T x N x D
 
         # Time-Axis Self-Attention
-        slots = einops.rearrange(slots, 'b t n d -> (b n) t d')
-        slots = self.time_attn(slots, slots, slots)
+        # slots = einops.rearrange(slots, 'b t n d -> (b t) n d', b=B, n=N, t=T)
+        slots = self.layer_time(slots)
+        slots, _ = self.time_attn(slots, slots, slots)
 
         # Object-Axis Self-Attention
-        slots = einops.rearrange(slots, '(b n) t d -> (b t) n d', b=B, n=N, t=T)
-        slots = self.obj_attn(slots, slots, slots)
+        slots = einops.rearrange(slots, '(b t) n d -> (b n) t d', b=B, n=N, t=T)
+        slots = self.layer_obj(slots)
+        slots, _ = self.obj_attn(slots, slots, slots)
 
         # Final Projection
         slots = slots.view(B, T, N, D)
         slots = self.proj(slots) + prev_slots
-        
+        out_dict = {
+            "features": input,
+            "prev_slots": prev_slots,
+            "mask": None
+        }
         if self.get_mask:
-            return input, slots, attn_mask
-        return input, slots
+            out_dict["mask"] = attn_mask
+        return out_dict

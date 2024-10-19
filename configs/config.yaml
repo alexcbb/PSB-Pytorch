@@ -2,12 +2,15 @@
 num_train_steps: 50000
 log_every_steps: 100
 offline: false
-batch_size: 8
+batch_size: 32
 num_workers: 4
+lr: 1e-4
+warmup_steps: 5000
+decay_steps: 100000
 
 # Model params
 input_shape: [64, 6, 3, 64, 64]
-output_size: 128
+output_size: 64
 num_slots: 8
 slot_size: 64
 slot_hidden_size: 128
@@ -15,3 +18,9 @@ num_layers: 2
 time_heads: 4
 obj_heads: 4
 resolution: [64, 64]
+
+# Data params
+data_dir: "<se-path-here>"
+max_video_len: 301
+num_sample_frame: 6
+frame_offset: 1

@@ -3,7 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import torchvision.utils as vutils
-
+import torch.optim as optim
+from transformers import (
+    get_linear_schedule_with_warmup
+)
 
 from .utils import conv_norm_act, deconv_norm_act, deconv_out_shape
 from .layers import SoftPositionEmbed, GridProjection, PSBBlock
@@ -51,15 +54,16 @@ class PSB(nn.Module):
         self.num_layers = num_layers
         self.num_slots = num_slots
         self.slot_size = slot_size
-        psb_layer = PSBBlock(
-            embed_dim=output_size,
-            ffn_dim=slot_hidden_size,
-            inverse_nh=1,
-            time_nh=time_heads,
-            obj_nh=obj_heads,
-            num_slots=self.num_slots,
+        self.psb = nn.Sequential(
+            *[PSBBlock(
+                embed_dim=output_size,
+                ffn_dim=slot_hidden_size,
+                inverse_nh=1,
+                time_nh=time_heads,
+                obj_nh=obj_heads,
+                num_slots=self.num_slots,
+            ) for _ in range(self.num_layers)]
         )
-        self.psb = nn.Sequential(*[psb_layer for _ in range(self.num_layers)])
 
         ## DECODER: Spatial-Broadcast Decoder (SBD)
         modules = []
@@ -110,9 +114,16 @@ class PSB(nn.Module):
             img = img.unsqueeze(1)
 
         # Extract slots
-        slots = self.psb(h, prev_slots)
+        in_dict = {
+            "features": h,
+            "prev_slots": None,
+            "mask": None
+        }
+        out_dict = self.psb(in_dict)
+        slots = out_dict["prev_slots"]
+        masks = out_dict["mask"]
         
-        return slots
+        return slots, masks
 
     def forward(self, img, prev_slots=None, lang=None, train=True):
         B, T = img.shape[:2]
@@ -136,8 +147,10 @@ class PSB(nn.Module):
     def decode(self, slots):
         """Decode from slots to reconstructed images and masks."""
         # `slots` has shape: [B, self.num_slots, self.slot_size].
+        if slots.dim() == 4:
+            slots = slots.flatten(0, 1)
         bs, num_slots, slot_size = slots.shape
-        height, width = self.input_shape[3:]
+        height, width = self.resolution
         num_channels = 3
 
         decoder_in = slots.view(bs * num_slots, slot_size, 1, 1)
@@ -159,6 +172,7 @@ class PSBModule(L.LightningModule):
             cfg
         ):
         super().__init__()
+        self.cfg = cfg
         self.model = PSB(
             input_shape=cfg.input_shape,
             output_size=cfg.output_size,
@@ -245,3 +259,15 @@ class PSBModule(L.LightningModule):
         video = torch.cat(video, dim=2)  # [T, 3, B*H, L*W]
         video = (video * 255.).cpu().numpy().astype(np.uint8)
         return video
+    
+    def configure_optimizers(self):
+        params = [p for p in self.parameters() if p.requires_grad] # only keep trainable parameters
+        optimizer = optim.Adam(params=params, lr=self.cfg.lr)
+        # AdamW(params=params, weight_decay=self.cfg.wd, lr=self.cfg.lr)
+        scheduler = get_linear_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=self.cfg.warmup_steps,
+            num_training_steps=self.cfg.decay_steps,
+        )
+        scheduler = {"scheduler": scheduler, "interval": "step", "frequency": 1}
+        return [optimizer], [scheduler]

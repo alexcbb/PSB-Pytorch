@@ -36,3 +36,6 @@ def main(cfg):
     }
     trainer = L.Trainer(callbacks=[lr_monitor, checkpoint_callback], **trainer_args)
     trainer.fit(model, datamodule=datamodule)
+
+if __name__ == "__main__":
+    main()

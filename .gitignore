@@ -1,4 +1,7 @@
 checkpoints/*
+data/*
+configs/config.yaml
+outputs/*
 *.pth
 *.ckpt
 *.log
