@@ -54,7 +54,9 @@ class VideoFolderDataset(Dataset):
                     f'frame_{(start_idx + n * self.frame_offset):04d}.jpg'))
             for n in range(self.num_sample_frame)
         ]
+        print(f"Number of frames: {len(frames)}")
         if any(frame is None for frame in frames):
+            print(f"Invalid frames for: {video_path}")
             raise ValueError
         frames = [
             self.transform(Image.fromarray(cv2.cvtColor(img, cv2.COLOR_RGB2BGR)))
