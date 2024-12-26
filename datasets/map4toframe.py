@@ -31,7 +31,7 @@ if __name__ == "__main__":
             if not ret:
                 break
             # Save the frame
-            cv2.imwrite(f"data/frames_{filename}/frame_{frame_count:04d}.jpg", frame)
+            cv2.imwrite(f"data/frames_{filename}/{frame_count:04d}.jpg", frame)
             frame_count += 1
         print(f"Total frames: {frame_count}")
         # Release the video
