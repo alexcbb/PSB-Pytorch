@@ -10,7 +10,7 @@ from datasets.dataset import VideoFolderDataModule
 def main(cfg):
 
     # Logger & Callbacks
-    wandb_logger = WandbLogger(project="PSB", offline=cfg.offline, name="PSB_CATER")
+    wandb_logger = WandbLogger(project="PSB", offline=cfg.offline, name=f"PSB_{cfg.dataset_name}")
     lr_monitor = LearningRateMonitor(logging_interval='step')
     checkpoint_callback = ModelCheckpoint(
         save_top_k=3,
