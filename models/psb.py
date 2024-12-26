@@ -4,94 +4,98 @@ import torch.nn.functional as F
 import numpy as np
 import torchvision.utils as vutils
 import torch.optim as optim
+import random
 from transformers import (
-    get_linear_schedule_with_warmup
+    get_cosine_schedule_with_warmup,
 )
 
-from .utils import conv_norm_act, deconv_norm_act, deconv_out_shape
-from .layers import SoftPositionEmbed, GridProjection, PSBBlock
+from .encoder import resnet18_savi, make_slot_attention_encoder
+from .decoder import make_savi_decoder, SpatialBroadcastDecoder
+from .layers import PSBBlock, CoordinatePositionEmbed
 import lightning as L
 
+# TODO : comment the code
 class PSB(nn.Module):
     def __init__(
         self,
         input_shape,
-        output_size,
+        encoder_type="resnet18",
         num_slots=8,
-        slot_size=192,
-        slot_hidden_size=128,
-        num_layers=2,
-        time_heads=4,
-        obj_heads=4,
-        resolution=(64, 64),
-        enc_channels = [3, 64, 64, 64, 64],
+        slot_size=64,
+        psb_hidden_dim=512,
+        inverse_nh=1,
+        time_nh=4,
+        obj_nh=4,
+        num_channels=3,
     ):
         super().__init__()
-        ## ENCODER : CNN + MLP proj (as SAVi)
-        self.resolution = resolution
-        if self.resolution[0] > 64:
+        self.input_shape = input_shape
+        self.num_channels = num_channels
+        self.resolution = input_shape
+        if self.resolution[0] == 128:
             self.visual_resolution = tuple(i // 2 for i in self.resolution)
-            downsample = True
-        else:
+            feature_multiplier = 1
+            downsample = 1
+        elif self.resolution[0] == 64:
             self.visual_resolution = self.resolution
-            downsample = False
-        self.visual_channels = enc_channels[-1]  # CNN out visual channels
-        enc_layers = len(enc_channels) - 1
-        self.encoder = nn.Sequential(*[
-            conv_norm_act(
-                enc_channels[i],
-                enc_channels[i + 1],
-                kernel_size=5,
-                # 2x downsampling for 128x128 image
-                stride=2 if (i == 0 and downsample) else 1,
-                norm='',
-                act='relu' if i != (enc_layers - 1) else '',
-            ) for i in range(enc_layers)
-        ])  # relu except for the last layer
-        self.projection_layer = GridProjection(self.visual_resolution , self.visual_channels, output_size)
+            feature_multiplier = 0.5
+            downsample = 0
+        else:
+            raise ValueError(f"Invalid resolution: {self.resolution} needed 128x128 or 64x64")
 
-        ## PSB-Layer
-        self.num_layers = num_layers
+
+        ## ENCODER : ResNet-18 or Classical CNN
+        if encoder_type == "resnet18":
+            self.visual_resolution = tuple(i // 8 for i in self.resolution)
+            self.encoder = resnet18_savi()
+            self.visual_channels = 512
+            self.projection_layer = CoordinatePositionEmbed(self.visual_channels, self.visual_resolution, proj_dim=slot_size)
+        elif encoder_type == "cnn":
+            self.encoder = make_slot_attention_encoder(
+                inp_dim=self.num_channels,
+                feature_multiplier=feature_multiplier,
+                downsamplings=downsample,
+            )
+            self.visual_channels = int(64 * feature_multiplier)
+            self.projection_layer = CoordinatePositionEmbed(self.visual_channels, self.visual_resolution, proj_dim=slot_size)
+        else:
+            raise ValueError(f"Invalid encoder type: {encoder_type}")
+
+        ## OBJECT-CENTRIC MODULE : Slot-Attention for Video == SA + Transformer
         self.num_slots = num_slots
         self.slot_size = slot_size
-        self.psb = nn.Sequential(
-            *[PSBBlock(
-                embed_dim=output_size,
-                ffn_dim=slot_hidden_size,
-                inverse_nh=1,
-                time_nh=time_heads,
-                obj_nh=obj_heads,
-                num_slots=self.num_slots,
-            ) for _ in range(self.num_layers)]
+        self.psb = nn.ModuleList(
+            [
+                PSBBlock(
+                    embed_dim=self.slot_size,
+                    ffn_dim=psb_hidden_dim,
+                    inverse_nh=inverse_nh,
+                    time_nh=time_nh,
+                    obj_nh=obj_nh,
+                    num_slots=num_slots,
+                    get_mask=True,
+                )
+                for _ in range(2)
+            ]
         )
 
         ## DECODER: Spatial-Broadcast Decoder (SBD)
-        modules = []
-        self.dec_resolution = (8, 8)
-        dec_channels = [slot_size, 64, 64, 64, 64]
-        stride = 2
-        out_size = self.dec_resolution[0]
-        for i in range(len(dec_channels) - 1):
-            if out_size == input_shape[-1]:
-                stride = 1
-            modules.append(
-                deconv_norm_act(
-                    dec_channels[i],
-                    dec_channels[i + 1],
-                    kernel_size=5,
-                    stride=stride,
-                    norm='',
-                    act='relu'))
-            out_size = deconv_out_shape(out_size, stride, 5 // 2,
-                                        5, stride - 1)
-        modules.append(
-            nn.Conv2d(dec_channels[-1], 4, kernel_size=1, stride=1, padding=0)
+        self.dec_resolution = (8, 8) # TODO: make this a parameter
+        savi_decoder = make_savi_decoder(
+            inp_dim=self.slot_size,
+            feature_multiplier=feature_multiplier,
+            upsamplings=4 if downsample else 3 
         )
-        self.decoder = nn.Sequential(*modules)
-        self.decoder_pos_embedding = SoftPositionEmbed(self.slot_size, self.dec_resolution)
-        self.loss_function = nn.MSELoss()
+        self.decoder = SpatialBroadcastDecoder(
+            inp_dim=self.slot_size,
+            outp_dim=self.num_channels,
+            backbone=savi_decoder,
+            backbone_dim=int(64*feature_multiplier) if encoder_type == "cnn" else 64,
+            initial_size=self.dec_resolution,
+            pos_embed=CoordinatePositionEmbed(self.slot_size, self.dec_resolution),
+        )
 
-    def encode(self, img, prev_slots=None, lang=None):
+    def encode(self, img):
         unflatten = False 
         if img.dim() == 5:
             unflatten = True
@@ -100,71 +104,67 @@ class PSB(nn.Module):
         else:
             B, C, H, W = img.shape
             T = 1
-        if lang is not None:
-            h = self.encoder(img, lang)
-        else:
-            h = self.encoder(img)
+        h = self.encoder(img)
         h = self.projection_layer(h)
-
         if unflatten:
             h = h.unflatten(0, (B, T)) 
             img = img.unflatten(0, (B, T))
         else:
             h = h.unsqueeze(1)
-            img = img.unsqueeze(1)
-
+            img = img.unsqueeze(1)        
         # Extract slots
         in_dict = {
             "features": h,
             "prev_slots": None,
-            "mask": None
         }
-        out_dict = self.psb(in_dict)
+        for psb in self.psb:
+            out_dict = psb(in_dict)
+            in_dict["prev_slots"] = out_dict["prev_slots"]
         slots = out_dict["prev_slots"]
-        masks = out_dict["mask"]
+        masks = out_dict["masks"]
         
         return slots, masks
 
-    def forward(self, img, prev_slots=None, lang=None, train=True):
-        B, T = img.shape[:2]
+    def decode(self, slots):
+        """Decode from slots to reconstructed images and masks."""
+        out_dict = self.decoder(slots)
+        recons = out_dict['reconstruction']
+        masks = out_dict['masks']
         
-        slots, masks_enc = self.encode(img, prev_slots, lang)
-
+        masks = F.softmax(masks, dim=1)  # [B, num_slots, 1, H, W]
+        if "recon_combined" not in out_dict:
+            recon_combined = torch.sum(recons * masks, dim=1) # [B, 3, H, W]
+        else:
+            recon_combined = out_dict["recon_combined"]
+        return recon_combined, recons, masks, slots
+    
+    def forward(self, img, train=True):
+        B, T = img.shape[:2]
+        slots, masks_enc = self.encode(img)
         out_dict = {
             'slots': slots,
             'masks_enc': masks_enc,
+            'video': img,
         }
         # Decode
         if train:
+            slots = slots.flatten(0, 1)
             recons_full, recons, masks_dec, slots = self.decode(slots)
             loss = self.loss_function(img, recons_full.unflatten(0, (B, T)))
             out_dict['masks_dec'] = masks_dec.unflatten(0, (B, T))
             out_dict['recons'] = recons.unflatten(0, (B, T))
             out_dict['recons_full'] = recons_full.unflatten(0, (B, T))
             out_dict['loss'] = loss
+            out_dict['mse_loss'] = loss
         return out_dict
     
-    def decode(self, slots):
-        """Decode from slots to reconstructed images and masks."""
-        # `slots` has shape: [B, self.num_slots, self.slot_size].
-        if slots.dim() == 4:
-            slots = slots.flatten(0, 1)
-        bs, num_slots, slot_size = slots.shape
-        height, width = self.resolution
-        num_channels = 3
+    def loss_function(self, img, recon_combined):
+        """Compute the loss function."""
+        loss = F.mse_loss(recon_combined, img, reduction='mean')
+        return loss
 
-        decoder_in = slots.view(bs * num_slots, slot_size, 1, 1)
-        decoder_in = decoder_in.repeat(1, 1, self.dec_resolution[0],
-                                    self.dec_resolution[1])
-        out = self.decoder_pos_embedding(decoder_in)
-        out = self.decoder(out)
-        # `out` has shape: [B*num_slots, 4, H, W].
-        out = out.view(bs, num_slots, num_channels + 1, height, width)
-        recons = out[:, :, :num_channels, :, :]  # [B, num_slots, 3, H, W]
-        masks = out[:, :, -1:, :, :]
-        masks = F.softmax(masks, dim=1)  # [B, num_slots, 1, H, W]
-        recon_combined = torch.sum(recons * masks, dim=1)  # [B, 3, H, W]
-        return recon_combined, recons, masks, slots
+    def output_shape(self):
+        return self.output_shape
 
 class PSBModule(L.LightningModule):
     def __init__(
@@ -174,33 +174,55 @@ class PSBModule(L.LightningModule):
         super().__init__()
         self.cfg = cfg
         self.model = PSB(
-            input_shape=cfg.input_shape,
-            output_size=cfg.output_size,
+            input_shape=[cfg.img_size, cfg.img_size],
+            encoder_type=cfg.get("encoder_type", "resnet18"),
             num_slots=cfg.num_slots,
             slot_size=cfg.slot_size,
-            slot_hidden_size=cfg.slot_hidden_size,
-            num_layers=cfg.num_layers,
-            time_heads=cfg.time_heads,
-            obj_heads=cfg.obj_heads,
-            resolution=cfg.resolution,
-        )                
+            psb_hidden_dim=cfg.psb_hidden_dim,
+            inverse_nh=cfg.inverse_nh,
+            time_nh=cfg.time_nh,
+            obj_nh=cfg.obj_nh,
+        )
         self.validation_outputs = []
+        self.automatic_optimization = False
 
+    def on_training_start(self):
+        self.random_idx = random.sample(list(range(2, len(self.trainer.train_dataloaders))), 4)
+        if 0 not in self.random_idx:
+            self.random_idx.append(0)
     
     def training_step(self, batch, batch_idx):
+        optimizer = self.optimizers()
+        scheduler = self.lr_schedulers()
+        optimizer.zero_grad()
+
         img = batch['video']
         out = self.model(img)
         loss = out['loss']
         self.log('train_loss', loss)
+
+        self.manual_backward(loss)
+        self.clip_gradients(optimizer, gradient_clip_val= 0.05, gradient_clip_algorithm='norm')
+        optimizer.step()
+        scheduler.step()
+
         return loss
     
     def validation_step(self, batch, batch_idx):
-        img = batch['video']
-        with torch.no_grad():
-            out = self.model(img)
-        loss = out['loss']
-        self.log('val_loss', loss)
-        return loss
+        if batch_idx in self.random_idx:
+            img = batch['video']
+            with torch.no_grad():
+                out = self.model(img)
+            loss = out['loss']
+            self.log('val_loss', loss)
+            self.validation_outputs.append(out)
+            return loss
+    
+    def on_validation_start(self):
+        # Get 6 random indices to visualize
+        self.random_idx = random.sample(list(range(2, len(self.trainer.val_dataloaders))), 4)
+        if 0 not in self.random_idx:
+            self.random_idx.append(0)
     
     def on_validation_epoch_end(self):
         results = []
@@ -210,7 +232,7 @@ class PSBModule(L.LightningModule):
             recons_full = out_dict["recons_full"][0]
             recons = out_dict["recons"][0]
             masks_dec = out_dict["masks_dec"][0]
-            img = out_dict["img"][0]
+            img = out_dict["video"][0]
             # masks_enc = out_dict["masks_enc"]
             save_video = self._make_video_grid(img, recons_full, recons,
                                             masks_dec)
@@ -231,7 +253,7 @@ class PSBModule(L.LightningModule):
                 [
                     imgs.unsqueeze(1),  # original images
                     recon_combined.unsqueeze(1),  # reconstructions
-                    recons * masks + (1. - masks),  # each slot
+                    recons * masks.unsqueeze(2) + (1. - masks.unsqueeze(2) ),  # each slot
                 ],
                 dim=1,
             ))  # [T, num_slots+2, 3, H, W]
@@ -261,10 +283,9 @@ class PSBModule(L.LightningModule):
         return video
     
     def configure_optimizers(self):
-        params = [p for p in self.parameters() if p.requires_grad] # only keep trainable parameters
+        params = [p for p in self.model.parameters() if p.requires_grad] # only keep trainable parameters
         optimizer = optim.Adam(params=params, lr=self.cfg.lr)
-        # AdamW(params=params, weight_decay=self.cfg.wd, lr=self.cfg.lr)
-        scheduler = get_linear_schedule_with_warmup(
+        scheduler = get_cosine_schedule_with_warmup(
             optimizer,
             num_warmup_steps=self.cfg.warmup_steps,
             num_training_steps=self.cfg.decay_steps,

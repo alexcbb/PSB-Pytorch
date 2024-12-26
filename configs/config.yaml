@@ -20,7 +20,8 @@ obj_heads: 4
 resolution: [64, 64]
 
 # Data params
-data_dir: "<se-path-here>"
+data_dir: "/home/achapin/Documents/LIBERO_videos/videos/"
+dataset_name: "clevrer"
 max_video_len: 301
 num_sample_frame: 6
 frame_offset: 1

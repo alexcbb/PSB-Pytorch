@@ -4,7 +4,7 @@ import lightning as L
 from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.loggers import WandbLogger
 from models.psb import PSBModule
-from datasets.cater import CaterDataModule
+from datasets.dataset import VideoFolderDataModule
 
 @hydra.main(config_path="configs", config_name="config")
 def main(cfg):
@@ -23,7 +23,7 @@ def main(cfg):
     )
     # Model & Data
     model = PSBModule(cfg)
-    datamodule = CaterDataModule(cfg)
+    datamodule = VideoFolderDataModule(cfg)
 
     trainer_args = {
         'accelerator': 'gpu', 

@@ -1,5 +1,65 @@
 import torch
 import torch.nn as nn
+from typing import Iterable, Union, List
+
+DEFAULT_WEIGHT_INIT = "default"
+
+def _infer_common_length(fail_on_missing_length=True, **kwargs) -> int:
+    """Given kwargs of scalars and lists, checks that all lists have the same length and returns it.
+
+    Optionally fails if no length was provided.
+    """
+    length = None
+    name = None
+    for cur_name, arg in kwargs.items():
+        if isinstance(arg, (tuple, list)):
+            cur_length = len(arg)
+            if length is None:
+                length = cur_length
+                name = cur_name
+            elif cur_length != length:
+                raise ValueError(
+                    f"Inconsistent lengths: {cur_name} has length {cur_length}, "
+                    f"but {name} has length {length}"
+                )
+
+    if fail_on_missing_length and length is None:
+        names = ", ".join(f"`{key}`" for key in kwargs.keys())
+        raise ValueError(f"Need to specify a list for at least one of {names}.")
+
+    return length
+
+def _maybe_expand_list(arg: Union[int, List[int]], length: int) -> list:
+    if not isinstance(arg, (tuple, list)):
+        return [arg] * length
+
+    return list(arg)
+
+def init_parameters(layers: Union[nn.Module, Iterable[nn.Module]], weight_init: str = "default"):
+    assert weight_init in ("default", "he_uniform", "he_normal", "xavier_uniform", "xavier_normal")
+    if isinstance(layers, nn.Module):
+        layers = [layers]
+
+    for idx, layer in enumerate(layers):
+        if hasattr(layer, "bias") and layer.bias is not None:
+            nn.init.zeros_(layer.bias)
+
+        if hasattr(layer, "weight") and layer.weight is not None:
+            gain = 1.0
+            if isinstance(layers, nn.Sequential):
+                if idx < len(layers) - 1:
+                    next = layers[idx + 1]
+                    if isinstance(next, nn.ReLU):
+                        gain = 2**0.5
+
+            if weight_init == "he_uniform":
+                torch.nn.init.kaiming_uniform_(layer.weight, gain)
+            elif weight_init == "he_normal":
+                torch.nn.init.kaiming_normal_(layer.weight, gain)
+            elif weight_init == "xavier_uniform":
+                torch.nn.init.xavier_uniform_(layer.weight, gain)
+            elif weight_init == "xavier_normal":
+                torch.nn.init.xavier_normal_(layer.weight, gain)
 
 def build_grid(resolution):
     """return grid with shape [1, H, W, 4]."""
