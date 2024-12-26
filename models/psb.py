@@ -26,12 +26,14 @@ class PSB(nn.Module):
         inverse_nh=1,
         time_nh=4,
         obj_nh=4,
+        num_layers=2,
         num_channels=3,
     ):
         super().__init__()
         self.input_shape = input_shape
         self.num_channels = num_channels
         self.resolution = input_shape
+        self.num_layers = num_layers
         if self.resolution[0] == 128:
             self.visual_resolution = tuple(i // 2 for i in self.resolution)
             feature_multiplier = 1
@@ -75,7 +77,7 @@ class PSB(nn.Module):
                     num_slots=num_slots,
                     get_mask=True,
                 )
-                for _ in range(2)
+                for _ in range(self.num_layers)
             ]
         )
 
@@ -182,7 +184,9 @@ class PSBModule(L.LightningModule):
             inverse_nh=cfg.inverse_nh,
             time_nh=cfg.time_nh,
             obj_nh=cfg.obj_nh,
+            num_layers=cfg.num_layers,
         )
+        
         self.validation_outputs = []
         self.automatic_optimization = False
 

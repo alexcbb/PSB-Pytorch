@@ -6,7 +6,6 @@ import os
 import cv2
 from PIL import Image
 
-
 class VideoFolderDataset(Dataset):
     def __init__(
         self,
@@ -14,8 +13,11 @@ class VideoFolderDataset(Dataset):
         max_video_len=301,
         num_sample_frame=6,
         frame_offset=1, 
+        img_size=64,
+        split="train"
     ):
         super().__init__()
+        data_dir = os.path.join(data_dir, split)
         all_videos = os.listdir(data_dir)
         self.files = [os.path.join(data_dir, video) for video in all_videos]
         self.num_sample_frame = num_sample_frame
@@ -23,7 +25,7 @@ class VideoFolderDataset(Dataset):
         self.frame_offset = frame_offset
         self.valid_idx = self._get_sample_idx()
         self.transform = T.Compose([
-            T.Resize((64, 64)),
+            T.Resize((img_size, img_size)),
             T.ToTensor(),
             T.Normalize(mean=0.5, std=0.5),
         ])
@@ -75,6 +77,15 @@ class VideoFolderDataModule(L.LightningDataModule):
             max_video_len=self.cfg.max_video_len,
             num_sample_frame=self.cfg.num_sample_frame,
             frame_offset=self.cfg.frame_offset,
+            img_size=self.cfg.img_size
+        )
+        self.val_dataset = VideoFolderDataset(
+            data_dir=self.cfg.data_dir,
+            max_video_len=self.cfg.max_video_len,
+            num_sample_frame=self.cfg.num_sample_frame,
+            frame_offset=self.cfg.frame_offset,
+            img_size=self.cfg.img_size,
+            split="val"
         )
 
     def train_dataloader(self):
@@ -82,6 +93,16 @@ class VideoFolderDataModule(L.LightningDataModule):
             self.train_dataset,
             batch_size=self.cfg.batch_size,
             shuffle=True,
+            num_workers=self.cfg.num_workers,
+            pin_memory=True,
+            persistent_workers=True
+        )
+    
+    def val_dataloader(self):
+        return torch.utils.data.DataLoader(
+            self.val_dataset,
+            batch_size=self.cfg.batch_size,
+            shuffle=False,
             num_workers=self.cfg.num_workers,
             pin_memory=True,
             persistent_workers=True

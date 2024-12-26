@@ -9,15 +9,15 @@ warmup_steps: 5000
 decay_steps: 100000
 
 # Model params
-input_shape: [64, 6, 3, 64, 64]
-output_size: 64
+img_size: 64
+encoder_type: "cnn"
 num_slots: 8
 slot_size: 64
-slot_hidden_size: 128
+psb_hidden_dim: 128
+inverse_nh: 1
+time_nh: 4
+obj_nh: 4
 num_layers: 2
-time_heads: 4
-obj_heads: 4
-resolution: [64, 64]
 
 # Data params
 data_dir: "TO DEFINE"
