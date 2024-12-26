@@ -53,6 +53,10 @@ class VideoFolderDataset(Dataset):
                     f'frame_{(start_idx + n * self.frame_offset):06d}.jpg'))
             for n in range(self.num_sample_frame)
         ]
+        print(f"First frame: {os.path.join(video_path, f'frame_{(start_idx + self.frame_offset):06d}.jpg')}")
+        print(f"Last frame: {os.path.join(video_path, f'frame_{(start_idx + self.num_sample_frame* self.frame_offset):06d}.jpg')}")
+        print(f"Num sample frames: {len(frames)}, with : {self.num_sample_frame}")
+        print(f"Types of frames: {[type(frame) for frame in frames]}")
         if any(frame is None for frame in frames):
             raise ValueError
         frames = [
