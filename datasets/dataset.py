@@ -46,17 +46,14 @@ class VideoFolderDataset(Dataset):
         """Read video frames. Directly read from jpg images."""
         video_idx, start_idx = self.valid_idx[idx]
         video_path = self.files[video_idx]
-        print(f"Reading video: {video_path}")
         frames = [
             cv2.imread(
                 os.path.join(
                     video_path,
-                    f'frame_{(start_idx + n * self.frame_offset):04d}.jpg'))
+                    f'frame_{(start_idx + n * self.frame_offset):06d}.jpg'))
             for n in range(self.num_sample_frame)
         ]
-        print(f"Number of frames: {len(frames)}")
         if any(frame is None for frame in frames):
-            print(f"Invalid frames for: {video_path}")
             raise ValueError
         frames = [
             self.transform(Image.fromarray(cv2.cvtColor(img, cv2.COLOR_RGB2BGR)))
