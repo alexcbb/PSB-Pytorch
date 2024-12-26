@@ -46,6 +46,7 @@ class VideoFolderDataset(Dataset):
         """Read video frames. Directly read from jpg images."""
         video_idx, start_idx = self.valid_idx[idx]
         video_path = self.files[video_idx]
+        print(f"Reading video: {video_path}")
         frames = [
             cv2.imread(
                 os.path.join(
