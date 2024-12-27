@@ -14,7 +14,6 @@ from .decoder import make_savi_decoder, SpatialBroadcastDecoder
 from .layers import PSBBlock, CoordinatePositionEmbed
 import lightning as L
 
-# TODO : comment the code
 class PSB(nn.Module):
     def __init__(
         self,

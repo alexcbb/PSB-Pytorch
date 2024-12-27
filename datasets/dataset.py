@@ -50,14 +50,14 @@ class VideoFolderDataset(Dataset):
             cv2.imread(
                 os.path.join(
                     video_path,
-                    f'{(start_idx + n * self.frame_offset):06d}.jpg'))
+                    f'{(start_idx + n * self.frame_offset):06d}.jpg'), cv2.IMREAD_COLOR)
             for n in range(self.num_sample_frame)
         ]
         if any(frame is None for frame in frames):
             print(f"Error reading frames from {video_path}")
             raise ValueError
         frames = [
-            self.transform(Image.fromarray(cv2.cvtColor(img, cv2.COLOR_RGB2BGR)))
+            self.transform(Image.fromarray(img).convert('RGB'))
             for img in frames
         ]  # [T, C, H, W]
         return torch.stack(frames, dim=0).float()

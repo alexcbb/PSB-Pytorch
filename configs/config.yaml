@@ -1,17 +1,19 @@
 # Training params
-num_train_steps: 50000
-log_every_steps: 100
+num_train_steps: 300000
+log_every_steps: 500
 offline: false
-batch_size: 32
+batch_size: 64
 num_workers: 4
-lr: 1e-4
-warmup_steps: 5000
+lr: 5e-5
+warmup_steps: 2500
 decay_steps: 100000
+checkpoint_every_n_steps: 10000
+val_check_interval: ${num_train_steps}
 
 # Model params
 img_size: 64
 encoder_type: "cnn"
-num_slots: 8
+num_slots: 7
 slot_size: 64
 psb_hidden_dim: 128
 inverse_nh: 1
