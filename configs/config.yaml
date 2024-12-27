@@ -24,6 +24,6 @@ num_layers: 2
 # Data params
 data_dir: "TO DEFINE"
 dataset_name: "clevrer"
-max_video_len: 301
+max_video_len: 128
 num_sample_frame: 6
 frame_offset: 1
