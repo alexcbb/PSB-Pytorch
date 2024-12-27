@@ -193,6 +193,7 @@ class PSBModule(L.LightningModule):
         self.random_idx = random.sample(list(range(2, len(self.trainer.train_dataloaders))), 4)
         if 0 not in self.random_idx:
             self.random_idx.append(0)
+        print(f"Random indices: {self.random_idx}")
     
     def training_step(self, batch, batch_idx):
         optimizer = self.optimizers()
@@ -226,6 +227,7 @@ class PSBModule(L.LightningModule):
         self.random_idx = random.sample(list(range(2, len(self.trainer.val_dataloaders))), 4)
         if 0 not in self.random_idx:
             self.random_idx.append(0)
+        print(f"Random indices: {self.random_idx}")
     
     def on_validation_epoch_end(self):
         results = []
