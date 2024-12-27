@@ -27,4 +27,5 @@ export TORCH_DISTRIBUTED_DEBUG=INFO
 export PYTHONPATH=.
 
 srun python train.py \
-    data_dir=~/CLEVRER/videos
+    data_dir=~/CLEVRER/videos \
+    max_video_len=128
