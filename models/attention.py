@@ -17,7 +17,7 @@ from torch import nn
 XFORMERS_ENABLED = os.environ.get("XFORMERS_DISABLED") is None
 try:
     if XFORMERS_ENABLED:
-        from xformers.ops import memory_efficient_attention, unbind
+        from xformers.ops import memory_efficient_attention, unbind, LowerTriangularMask 
         XFORMERS_AVAILABLE = True
         warnings.warn("xFormers is available (Attention)")
     else:
@@ -48,12 +48,15 @@ class Attention(nn.Module):
         self.proj = nn.Linear(dim, dim, bias=proj_bias)
         self.proj_drop = nn.Dropout(proj_drop)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: Tensor, attn_mask=None) -> Tensor:
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
 
         q, k, v = qkv[0] * self.scale, qkv[1], qkv[2]
         attn = q @ k.transpose(-2, -1)
+        if attn_mask is not None:
+            attn_mask = attn_mask.unsqueeze(1).repeat(1, self.num_heads, 1, 1) 
+            attn = attn.masked_fill(attn_mask, float('-inf'))
 
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
@@ -65,7 +68,7 @@ class Attention(nn.Module):
 
 
 class MemEffAttention(Attention):
-    def forward(self, x: Tensor, attn_bias=None) -> Tensor:
+    def forward(self, x: Tensor, attn_bias=None, attn_mask=None) -> Tensor:
         if not XFORMERS_AVAILABLE:
             if attn_bias is not None:
                 raise AssertionError("xFormers is required for using nested tensors")
@@ -76,7 +79,7 @@ class MemEffAttention(Attention):
 
         q, k, v = unbind(qkv, 2)
 
-        x = memory_efficient_attention(q, k, v, attn_bias=attn_bias)
+        x = memory_efficient_attention(q, k, v, attn_bias=LowerTriangularMask() if attn_mask else None)
         x = x.reshape([B, N, C])
 
         x = self.proj(x)
