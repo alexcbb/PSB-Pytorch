@@ -184,13 +184,13 @@ class PSBBlock(nn.Module):
         slots = einops.rearrange(slots, 'b (t n) d -> (b n) t d', b=B, n=N, t=T)
         slots = self.layer_time(slots) #  BxT, N, D
         # time_causal_mask = torch.triu(torch.ones((T, T), dtype=torch.bool), diagonal=1).to(x.device)
-        pred_slots, _ = self.time_attn(slots, attn_mask=True)#, slots, slots, attn_mask=time_causal_mask, is_causal=True)
+        pred_slots = self.time_attn(slots, attn_mask=True)#, slots, slots, attn_mask=time_causal_mask, is_causal=True)
         slots = slots + pred_slots # Residual Connection
 
         # Object-Axis Self-Attention
         slots = einops.rearrange(slots, '(b n) t d -> (b t) n d', b=B, n=N, t=T)
         slots = self.layer_obj(slots)
-        pred_slots, _ = self.obj_attn(slots)#, slots, slots)
+        pred_slots = self.obj_attn(slots)#, slots, slots)
         slots = slots + pred_slots # Residual Connection
 
         # Final Projection
