@@ -59,7 +59,7 @@ class VideoFolderDataset(Dataset):
             for n in range(self.num_sample_frame)
         ]
         if any(frame is None for frame in frames):
-            print(f"Error reading frames from {video_path}")
+            print(f"Error reading frames from {video_path} with start_idx {start_idx} and num sample frame {self.num_sample_frame}")
             raise ValueError
         frames = [
             self.transform(Image.fromarray(img).convert('RGB'))
