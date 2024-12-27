@@ -10,16 +10,15 @@ This repo aims to reproduce and open the results obtained from "Parallelized Spa
 - [x] Prepare the layers
 - [x] Prepare the training loop
 - [ ] Create a simple CATER dataset
-____
 - [ ] Launch a first training
-- [ ] Launch a PSB training
-- [ ] Launch an original SAVi training
-- [ ] Compare the accuracies & the training times
+ - [ ] Launch a PSB training
+ - [ ] Launch an original SAVi training
+ - [ ] Compare the accuracies & the training times
 
 - [ ] Train the model on other datasets
-- [ ] Launch training on CLEVRER
-- [ ] Launch training on MOVi datasets
-____
+ - [ ] Launch training on CLEVRER
+ - [ ] Launch training on MOVi datasets
+ 
 - [ ] Combine with DINOSAUR/VIDEOSAUR
 
 

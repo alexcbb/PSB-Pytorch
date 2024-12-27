@@ -11,6 +11,7 @@ import torch.nn.functional as F
 import einops
 from typing import Tuple
 from .utils import init_parameters
+from .attention import MemEffAttention
 
 class RelativePosition(nn.Module):
     def __init__(self, num_embeds, max_relative_position):
@@ -126,19 +127,27 @@ class PSBBlock(nn.Module):
         
         ## Time-Axis Self-Attention
         self.layer_time = nn.LayerNorm(embed_dim)
-        self.time_attn = nn.MultiheadAttention(
-                embed_dim=embed_dim,
-                num_heads=time_nh,
-                batch_first=True,
+        self.time_attn = MemEffAttention(
+                dim=embed_dim,
+                num_heads=time_nh
             )
+            # nn.MultiheadAttention(
+            #     embed_dim=embed_dim,
+            #     num_heads=time_nh,
+            #     batch_first=True,
+            # )
 
         ## Object-Axis Self-Attention
         self.layer_obj = nn.LayerNorm(embed_dim)
-        self.obj_attn = nn.MultiheadAttention(
-                embed_dim=embed_dim,
-                num_heads=obj_nh,
-                batch_first=True,
+        self.obj_attn = MemEffAttention(
+                dim=embed_dim,
+                num_heads=obj_nh
             )
+            # nn.MultiheadAttention(
+            #     embed_dim=embed_dim,
+            #     num_heads=obj_nh,
+            #     batch_first=True,
+            # )
 
         ## Final Projection
         self.proj = nn.Sequential(
