@@ -4,9 +4,10 @@ log_every_steps: 500
 offline: false
 batch_size: 64
 num_workers: 8
-lr: 5e-5
-warmup_steps: 2500
-decay_steps: ${num_train_steps}
+lr: 3e-4
+betas: [0.9, 0.95]
+warmup_steps: 30000
+decay_steps: 500000
 checkpoint_every_n_steps: 10000
 val_check_interval: 5000
 
@@ -15,11 +16,11 @@ img_size: 64
 encoder_type: "cnn"
 num_slots: 7
 slot_size: 64
-psb_hidden_dim: 128
+psb_hidden_dim: 192
 inverse_nh: 1
 time_nh: 4
 obj_nh: 4
-num_layers: 2
+num_layers: 3
 
 # Data params
 data_dir: "TO DEFINE"

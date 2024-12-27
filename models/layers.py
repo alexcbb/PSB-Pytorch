@@ -51,6 +51,8 @@ class InverseCrossAttentionMH(nn.Module):
         self.proj_k = nn.Linear(d_model, d_model, bias=False)
         self.proj_v = nn.Linear(d_model, d_model, bias=False)
         self.proj_o = nn.Linear(d_model, d_model, bias=False)
+
+        init_parameters(self, "xavier_uniform")
     
     def forward(self, q, k, v, attn_mask=None, return_seg=False):
         """
@@ -85,7 +87,6 @@ class InverseCrossAttentionMH(nn.Module):
 
         return output, seg_mask
     
-
     def concat(self, tensor):
         """
         inverse function of self.split(tensor : torch.Tensor)
@@ -136,6 +137,7 @@ class PSBBlock(nn.Module):
             #     num_heads=time_nh,
             #     batch_first=True,
             # )
+
 
         ## Object-Axis Self-Attention
         self.layer_obj = nn.LayerNorm(embed_dim)

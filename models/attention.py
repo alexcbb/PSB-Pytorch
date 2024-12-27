@@ -47,6 +47,7 @@ class Attention(nn.Module):
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim, bias=proj_bias)
         self.proj_drop = nn.Dropout(proj_drop)
+        self.init_parameters()
 
     def forward(self, x: Tensor, attn_mask=None) -> Tensor:
         B, N, C = x.shape
@@ -66,6 +67,12 @@ class Attention(nn.Module):
         x = self.proj_drop(x)
         return x
 
+    def init_parameters(self):
+        for layer in self.children():
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_uniform_(layer.weight)
+                if layer.bias is not None:
+                    nn.init.zeros_(layer.bias)
 
 class MemEffAttention(Attention):
     def forward(self, x: Tensor, attn_bias=None, attn_mask=None) -> Tensor:

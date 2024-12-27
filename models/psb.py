@@ -6,7 +6,7 @@ import torchvision.utils as vutils
 import torch.optim as optim
 import random
 from transformers import (
-    get_cosine_schedule_with_warmup,
+    get_cosine_schedule_with_warmup
 )
 
 from .encoder import resnet18_savi, make_slot_attention_encoder
@@ -206,7 +206,7 @@ class PSBModule(L.LightningModule):
         self.log('train_loss', loss)
 
         self.manual_backward(loss)
-        self.clip_gradients(optimizer, gradient_clip_val= 0.05, gradient_clip_algorithm='norm')
+        self.clip_gradients(optimizer, gradient_clip_val=1.0, gradient_clip_algorithm='norm')
         optimizer.step()
         scheduler.step()
 
@@ -289,7 +289,12 @@ class PSBModule(L.LightningModule):
     
     def configure_optimizers(self):
         params = [p for p in self.model.parameters() if p.requires_grad] # only keep trainable parameters
-        optimizer = optim.Adam(params=params, lr=self.cfg.lr)
+        optimizer = optim.AdamW(
+            params=params, 
+            lr=self.cfg.lr, 
+            weight_decay=self.cfg.weight_decay, 
+            betas=(self.cfg.betas[0], self.cfg.betas[1])
+        )
         scheduler = get_cosine_schedule_with_warmup(
             optimizer,
             num_warmup_steps=self.cfg.warmup_steps,
