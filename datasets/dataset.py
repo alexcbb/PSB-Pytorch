@@ -19,11 +19,11 @@ class VideoFolderDataset(Dataset):
         super().__init__()
         data_dir = os.path.join(data_dir, split)
         all_videos = os.listdir(data_dir)
-        if os.path.isdir(os.path.join(data_dir, all_videos[0])):
-            temp = []
-            for dir in all_videos:
-                temp += [os.path.join(dir, video) for video in os.listdir(os.path.join(data_dir, dir))]
-            all_videos = temp
+        # if os.path.isdir(os.path.join(data_dir, all_videos[0])):
+        #     temp = []
+        #     for dir in all_videos:
+        #         temp += [os.path.join(dir, video) for video in os.listdir(os.path.join(data_dir, dir))]
+        #     all_videos = temp
         self.files = [os.path.join(data_dir, video) for video in all_videos]
         self.num_sample_frame = num_sample_frame
         self.max_video_len = max_video_len
