@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#SBATCH --job-name=psb_clevrer
-#SBATCH --output=logs/psb_clevrer.%j.out
-#SBATCH --error=logs/psb_clevrer.%j.err
+#SBATCH --job-name=eval_psb_clevrer
+#SBATCH --output=logs/eval_psb_clevrer.%j.out
+#SBATCH --error=logs/eval_psb_clevrer.%j.err
 #SBATCH -A uli@h100
 #SBATCH -C h100
 #SBATCH --nodes=1
@@ -10,8 +10,8 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=24
 #SBATCH --hint=nomultithread
-#SBATCH -t 60:00:00
-#SBATCH --qos=qos_gpu_h100-t4
+#SBATCH -t 02:00:00
+#SBATCH --qos=qos_gpu_h100-dev
 #SBATCH --mail-user=alexandre.chapin@ec-lyon.fr
 #SBATCH --mail-typ=FAIL
 
