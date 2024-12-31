@@ -253,18 +253,20 @@ class PSBModule(L.LightningModule):
         """Make a video of grid images showing slot decomposition."""
         # combine images in a way so we can display all outputs in one grid
         # output rescaled to be between 0 and 1
+        recons = self.to_rgb_from_tensor(recons)
+        imgs = self.to_rgb_from_tensor(imgs)
+        recon_combined = self.to_rgb_from_tensor(recon_combined)
         print(f"imgs: {imgs.shape}, recon_combined: {recon_combined.shape}, recons: {recons.shape}, masks: {masks.shape}")
         print(f"recons min: {recons.min()}, recons max: {recons.max()}")
         print(f"masks min: {masks.min()}, masks max: {masks.max()}")
-        out = self.to_rgb_from_tensor(
-            torch.cat(
+        out = torch.cat(
                 [
                     imgs.unsqueeze(1),  # original images
                     recon_combined.unsqueeze(1),  # reconstructions
                     recons * masks.unsqueeze(2)#  + (1. - masks.unsqueeze(2)),  # each slot
                 ],
                 dim=1,
-            ))  # [T, num_slots+2, 3, H, W]
+            )  # [T, num_slots+2, 3, H, W]
         # stack the slot decomposition in all frames to a video
         save_video = torch.stack([
             vutils.make_grid(
