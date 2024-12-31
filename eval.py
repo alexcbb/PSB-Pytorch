@@ -13,7 +13,7 @@ def main(cfg):
     wandb_logger = WandbLogger(project="SlotFormer", offline=cfg.offline, name=f"PSB_{cfg.dataset_name}")
     assert cfg.checkpoint_path is not None, "Please provide a checkpoint path"
     # Model & Data
-    model = PSBModule.load_from_checkpoint(cfg.checkpoint_path)
+    model = PSBModule.load_from_checkpoint(cfg.checkpoint_path, cfg=cfg)
     model.eval()
     datamodule = VideoFolderDataModule(cfg)
 
