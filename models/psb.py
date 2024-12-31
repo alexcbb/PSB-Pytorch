@@ -239,9 +239,14 @@ class PSBModule(L.LightningModule):
             # masks_enc = out_dict["masks_enc"]
             save_video = self._make_video_grid(img, recons_full, recons,
                                             masks_dec)
-            masks_one_hot = F.one_hot(masks_dec.argmax(1), num_classes=masks_dec.shape[1])
-            print(f"masks_one_hot: {masks_one_hot.shape} masks_dec: {masks_dec.shape}")
+
+            mask_argmax = torch.argmax(masks_dec, dim=-3)
+            masks_oh = F.one_hot(mask_argmax, masks_dec.shape[-3]).to(torch.float32)
+            masks_oh = masks_oh.transpose(-1, -2).transpose(-2, -3)  # B, [F,] H, W, C -> B, [F], C, H, W
+            save_vide_oh = self._make_video_grid(img, recons_full, recons,
+                                            masks_oh)
             results.append(save_video)
+            results.append(save_vide_oh)
         self.validation_outputs.clear()
         self.logger.log_video('val/video', [self._convert_video(results)], {"fps": [10]})
 
