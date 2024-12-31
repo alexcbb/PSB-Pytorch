@@ -7,18 +7,18 @@ This repo aims to reproduce and open the results obtained from "Parallelized Spa
 ## ✅ TODO list :
 - [x] Create README
 - [x] Prepare issues labels
+### Model
 - [x] Prepare the layers
+### Training 
 - [x] Prepare the training loop
-- [ ] Create a simple CATER dataset
-- [ ] Launch a first training
- - [ ] Launch a PSB training
- - [ ] Launch an original SAVi training
- - [ ] Compare the accuracies & the training times
-
+- [x] Create a simple dataset (CLEVRER)
+- [x] Launch a PSB training
+- [ ] Launch an original SAVi training
+- [ ] Compare the accuracies & the training times
+### Further experiments
 - [ ] Train the model on other datasets
- - [ ] Launch training on CLEVRER
- - [ ] Launch training on MOVi datasets
- 
+- [ ] Launch training on MOVi datasets
+### Improving the model ? 
 - [ ] Combine with DINOSAUR/VIDEOSAUR
 
 

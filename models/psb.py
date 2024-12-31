@@ -193,7 +193,6 @@ class PSBModule(L.LightningModule):
         self.random_idx = random.sample(list(range(2, len(self.trainer.train_dataloaders))), 4)
         if 0 not in self.random_idx:
             self.random_idx.append(0)
-        print(f"Random indices: {self.random_idx}")
     
     def training_step(self, batch, batch_idx):
         optimizer = self.optimizers()
@@ -227,7 +226,6 @@ class PSBModule(L.LightningModule):
         self.random_idx = random.sample(list(range(2, len(self.trainer.val_dataloaders))), 4)
         if 0 not in self.random_idx:
             self.random_idx.append(0)
-        print(f"Random indices: {self.random_idx}")
     
     def on_validation_epoch_end(self):
         results = []
@@ -241,6 +239,8 @@ class PSBModule(L.LightningModule):
             # masks_enc = out_dict["masks_enc"]
             save_video = self._make_video_grid(img, recons_full, recons,
                                             masks_dec)
+            masks_one_hot = F.one_hot(masks_dec.argmax(1), num_classes=masks_dec.shape[1])
+            print(f"masks_one_hot: {masks_one_hot.shape} masks_dec: {masks_dec.shape}")
             results.append(save_video)
         self.validation_outputs.clear()
         self.logger.log_video('val/video', [self._convert_video(results)], {"fps": [10]})
@@ -253,6 +253,9 @@ class PSBModule(L.LightningModule):
         """Make a video of grid images showing slot decomposition."""
         # combine images in a way so we can display all outputs in one grid
         # output rescaled to be between 0 and 1
+        print(f"imgs: {imgs.shape}, recon_combined: {recon_combined.shape}, recons: {recons.shape}, masks: {masks.shape}")
+        print(f"recons min: {recons.min()}, recons max: {recons.max()}")
+        print(f"masks min: {masks.min()}, masks max: {masks.max()}")
         out = self.to_rgb_from_tensor(
             torch.cat(
                 [
