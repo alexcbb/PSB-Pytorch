@@ -9,6 +9,7 @@ This repo aims to reproduce and open the results obtained from "Parallelized Spa
 - [x] Prepare issues labels
 ### Model
 - [x] Prepare the layers
+- [ ] Implement SAVi
 ### Training 
 - [x] Prepare the training loop
 - [x] Create a simple dataset (CLEVRER)
