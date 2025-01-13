@@ -31,6 +31,8 @@ class SAVi(nn.Module):
         self.num_channels = num_channels
         self.resolution = input_shape
         self.num_iters = num_iters
+        self.num_slots = num_slots
+        self.slot_size = slot_size
         if self.resolution[0] == 128:
             self.visual_resolution = tuple(i // 2 for i in self.resolution)
             feature_multiplier = 1
@@ -63,8 +65,6 @@ class SAVi(nn.Module):
             raise ValueError(f"Invalid encoder type: {encoder_type}")
 
         ## OBJECT-CENTRIC MODULE : Slot-Attention for Video == SA + Transformer
-        self.num_slots = num_slots
-        self.slot_size = slot_size
         self.grouping = SlotAttention(
             inp_dim=slot_size,
             slot_dim=self.slot_size,
