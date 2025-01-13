@@ -249,14 +249,12 @@ class PSBModule(L.LightningModule):
 
     def _make_video_grid(self, imgs, recon_combined, recons, masks):
         """Make a video of grid images showing slot decomposition."""
-        # combine images in a way so we can display all outputs in one grid
-        # output rescaled to be between 0 and 1
         out = self.to_rgb_from_tensor(
             torch.cat(
                 [
                     imgs.unsqueeze(1),  # original images
                     recon_combined.unsqueeze(1),  # reconstructions
-                    recons * masks.unsqueeze(2)#  + (1. - masks.unsqueeze(2)),  # each slot
+                    recons * masks.unsqueeze(2)  + (1. - masks.unsqueeze(2)),  # each slot
                 ],
                 dim=1,
             ))  # [T, num_slots+2, 3, H, W]
