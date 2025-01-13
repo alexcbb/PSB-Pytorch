@@ -42,6 +42,8 @@ class SAVi(nn.Module):
         else:
             raise ValueError(f"Invalid resolution: {self.resolution} needed 128x128 or 64x64")
 
+        self.init_latents = nn.Parameter(
+                    nn.init.normal_(torch.empty(1, self.num_slots, self.slot_size)))
 
         ## ENCODER : ResNet-18 or Classical CNN
         if encoder_type == "resnet18":
@@ -107,15 +109,11 @@ class SAVi(nn.Module):
             h = h.unsqueeze(1)
             img = img.unsqueeze(1)        
         # Extract slots
-        in_dict = {
-            "features": h,
-            "prev_slots": None,
-        }
-        # TODO : perform training iterative savi here
+        prev_slots = self.init_latents.repeat(B, 1, 1)
         for _ in range(T):
-            out_dict = self.grouping(in_dict)
-            in_dict["prev_slots"] = out_dict["slots"]
-        slots = out_dict["prev_slots"]
+            out_dict = self.grouping(prev_slots, h, n_iters=self.num_iters)
+            prev_slots = out_dict["slots"]
+        slots = out_dict["slots"]
         masks = out_dict["masks"]
         
         return slots, masks
@@ -174,11 +172,8 @@ class SAViModule(L.LightningModule):
             encoder_type=cfg.get("encoder_type", "resnet18"),
             num_slots=cfg.num_slots,
             slot_size=cfg.slot_size,
-            psb_hidden_dim=cfg.psb_hidden_dim,
-            inverse_nh=cfg.inverse_nh,
-            time_nh=cfg.time_nh,
-            obj_nh=cfg.obj_nh,
-            num_layers=cfg.num_layers,
+            hidden_dim=cfg.psb_hidden_dim,
+            num_iters=cfg.num_layers,
         )
         
         self.validation_outputs = []
