@@ -110,10 +110,12 @@ class SAVi(nn.Module):
             img = img.unsqueeze(1)        
         # Extract slots
         prev_slots = self.init_latents.repeat(B, 1, 1)
+        all_slots = []
         for t in range(T):
             out_dict = self.grouping(prev_slots, h[:, t], n_iters=self.num_iters)
             prev_slots = out_dict["slots"]
-        slots = out_dict["slots"]
+            all_slots.append(prev_slots)
+        slots = torch.stack(all_slots, dim=1)  # [B, T, num_slots, slot_size]
         masks = out_dict["masks"]
         
         return slots, masks
