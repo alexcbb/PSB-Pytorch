@@ -254,7 +254,7 @@ class PSBModule(L.LightningModule):
                 [
                     imgs.unsqueeze(1),  # original images
                     recon_combined.unsqueeze(1),  # reconstructions
-                    recons * masks  + (1. - masks),  # each slot
+                    recons * masks.unsqueeze(2)  + (1. - masks.unsqueeze(2)),  # each slot
                 ],
                 dim=1,
             ))  # [T, num_slots+2, 3, H, W]
