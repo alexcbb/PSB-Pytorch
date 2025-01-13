@@ -232,14 +232,7 @@ class SAViModule(L.LightningModule):
             # masks_enc = out_dict["masks_enc"]
             save_video = self._make_video_grid(img, recons_full, recons,
                                             masks_dec)
-
-            mask_argmax = torch.argmax(masks_dec, dim=-3)
-            masks_oh = F.one_hot(mask_argmax, masks_dec.shape[-3]).to(torch.float32)
-            masks_oh = masks_oh.transpose(-1, -2).transpose(-2, -3)  # B, [F,] H, W, C -> B, [F], C, H, W
-            save_vide_oh = self._make_video_grid(img, recons_full, recons,
-                                            masks_oh)
             results.append(save_video)
-            results.append(save_vide_oh)
         self.validation_outputs.clear()
         self.logger.log_video('val/video', [self._convert_video(results)], {"fps": [10]})
 
@@ -254,9 +247,6 @@ class SAViModule(L.LightningModule):
         recons = self.to_rgb_from_tensor(recons)
         imgs = self.to_rgb_from_tensor(imgs)
         recon_combined = self.to_rgb_from_tensor(recon_combined)
-        print(f"imgs: {imgs.shape}, recon_combined: {recon_combined.shape}, recons: {recons.shape}, masks: {masks.shape}")
-        print(f"recons min: {recons.min()}, recons max: {recons.max()}")
-        print(f"masks min: {masks.min()}, masks max: {masks.max()}")
         out = torch.cat(
                 [
                     imgs.unsqueeze(1),  # original images
