@@ -112,7 +112,11 @@ class PSB(nn.Module):
             img = img.unflatten(0, (B, T))
         else:
             h = h.unsqueeze(1)
-            img = img.unsqueeze(1)        
+            img = img.unsqueeze(1)     
+        if torch.isnan(h).any():
+            raise ValueError("NaNs in the encoder output")   
+        elif torch.isinf(h).any():
+            raise ValueError("Infs in the encoder output")
         # Extract slots
         in_dict = {
             "features": h,
@@ -121,6 +125,10 @@ class PSB(nn.Module):
         for psb in self.psb:
             out_dict = psb(in_dict)
             in_dict["prev_slots"] = out_dict["prev_slots"]
+            if torch.isnan(in_dict["prev_slots"]).any():
+                raise ValueError("NaNs in the slot output")
+            elif torch.isinf(in_dict["prev_slots"]).any():
+                raise ValueError("Infs in the slot output")
         slots = out_dict["prev_slots"]
         masks = out_dict["masks"]
         
@@ -130,6 +138,8 @@ class PSB(nn.Module):
         """Decode from slots to reconstructed images and masks."""
         out_dict = self.decoder(slots)
         recons = out_dict['reconstruction']
+        if torch.isnan(recons).any():
+            raise ValueError("NaNs in the decoder output")
         masks = out_dict['masks']
         
         masks = F.softmax(masks, dim=1)  # [B, num_slots, 1, H, W]
@@ -161,7 +171,13 @@ class PSB(nn.Module):
     
     def loss_function(self, img, recon_combined):
         """Compute the loss function."""
+        if torch.isnan(recon_combined).any():
+            raise ValueError("NaNs in the recon_combined")
+        elif torch.isinf(recon_combined).any():
+            raise ValueError("Infs in the recon_combined")
         loss = F.mse_loss(recon_combined, img, reduction='mean')
+        if torch.isnan(loss).any():
+            raise ValueError("NaNs in the loss")
         return loss
 
     def output_shape(self):

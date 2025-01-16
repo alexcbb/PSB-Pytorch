@@ -203,7 +203,7 @@ class InverseCrossAttentionMH(nn.Module):
         
         # Inverted-attention + Renoemalization
         attn = F.softmax(attn, dim=-2) # normalize along query; -1 for key
-        attn = attn / torch.sum(attn, dim=-1, keepdim=True)
+        attn = attn / torch.sum(attn + 1e-10, dim=-1, keepdim=True)
         if return_seg:
             seg_mask = attn.detach().clone().mean(1).squeeze(1).permute(0, 2, 1)
         # Concat
