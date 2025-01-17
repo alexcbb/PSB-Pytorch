@@ -105,9 +105,7 @@ class PSB(nn.Module):
         else:
             B, C, H, W = img.shape
             T = 1
-        print(f"Input image shape {img.shape}")
         h = self.encoder(img)
-        print(f"Extracted features {h.shape}")
         h = self.projection_layer(h)
         if unflatten:
             h = h.unflatten(0, (B, T)) 
