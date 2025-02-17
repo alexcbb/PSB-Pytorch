@@ -142,7 +142,6 @@ class PSB(nn.Module):
             raise ValueError("NaNs in the decoder output")
         masks = out_dict['masks']
         
-        masks = F.softmax(masks, dim=1)  # [B, num_slots, 1, H, W]
         if "recon_combined" not in out_dict:
             recon_combined = torch.sum(recons * masks, dim=1) # [B, 3, H, W]
         else:
